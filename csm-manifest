@@ -1,0 +1,185 @@
+ls
+01-namespace.yaml             04-persistent-volume.yaml        07-configmap-cms.yaml    10-deployment-cms.yaml
+02-service-account.yaml       05-persistent-volume-claim.yaml  08-service-redis.yaml
+03-cluster-role-binding.yaml  06-secret-mysql.yaml             09-endpoints-redis.yaml
+toqqer@toqqer-ThinkPad-T480:~/realfiles/cms-api-eks/testing-deployment/new-testing-deployment$ cat *
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: toqqer-test
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cms-sa
+  namespace: toqqer-test
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: cms-cluster-admin-binding
+subjects:
+  - kind: ServiceAccount
+    name: cms-sa
+    namespace: toqqer-test
+roleRef:
+  kind: ClusterRole
+  name: cluster-admin
+  apiGroup: rbac.authorization.k8s.io
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: toqqer-test-pv
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+    - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  hostPath:
+    path: /mnt/data/toqqer-test
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: toqqer-test-pvc
+  namespace: toqqer-test
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  volumeName: toqqer-test-pv
+  storageClassName: local-storage
+apiVersion: v1
+kind: Secret
+metadata:
+  name: mysql-credentials
+  namespace: toqqer-test
+type: Opaque
+data:
+  username: dG9xcWVybWFzdGVy
+  password: dG9xcWVybWFzdGVy
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cms-config
+  namespace: toqqer-test
+data:
+  DB_HOST: "mysql-external"
+  DB_PORT: "3306"
+  DB_NAME: "toqqermaster"
+  REDIS_HOST: "redis-external"
+  REDIS_PORT: "6379"
+  SPRING_REDIS_HOST: "redis-external"
+  SPRING_REDIS_PORT: "6379"
+  SOLR_ENABLED: "false"
+  SPRING_DATA_SOLR_HOST: ""
+  SOLR_HOST: ""
+  SOLR_PORT: ""
+  appId: "cms-toqqer-app"
+  app.id: "cms-toqqer-app"
+  APP_ID: "cms-toqqer-app"
+  appSecretKey: "cms-secret-key-12345"
+  app.secret.key: "cms-secret-key-12345"
+  APP_SECRET_KEY: "cms-secret-key-12345"
+  payment.gateway.app.id: "cms-payment-gateway"
+  payment.gateway.appId: "cms-payment-gateway"
+  payment.gateway.app.secret.key: "cms-payment-secret-12345"
+  payment.gateway.appSecretKey: "cms-payment-secret-12345"
+  PAYMENT_GATEWAY_APP_ID: "cms-payment-gateway"
+  PAYMENT_GATEWAY_APP_SECRET_KEY: "cms-payment-secret-12345"
+  SPRING_PROFILES_ACTIVE: "default"
+  PAYMENT_GATEWAY_ENABLED: "false"
+  SPRING_AUTOCONFIGURE_EXCLUDE: "com.toqqer.payment.config.PaymentGatewayConfig"
+  SPRING_DATASOURCE_URL: "jdbc:mysql://mysql-external:3306/toqqermaster"
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis-external
+  namespace: toqqer-test
+spec:
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+  clusterIP: None
+apiVersion: v1
+kind: Endpoints
+metadata:
+  name: redis-external
+  namespace: toqqer-test
+subsets:
+  - addresses:
+      - ip: 192.168.0.200
+    ports:
+      - port: 6379
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms
+  namespace: toqqer-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cms
+  template:
+    metadata:
+      labels:
+        app: cms
+    spec:
+      serviceAccountName: cms-sa
+      containers:
+        - name: cms
+          image: toqqer/cms:latest
+          command: ["java", "-jar", "/root/toqqer/storage/cms/CMS-Service-0.0.1-SNAPSHOT.jar"]
+          ports:
+            - containerPort: 8013
+          envFrom:
+            - configMapRef:
+                name: cms-config
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: password
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: password
+          volumeMounts:
+            - mountPath: /root/toqqer/storage/data
+              name: cms-storage
+          readinessProbe:
+            tcpSocket:
+              port: 8013
+            initialDelaySeconds: 180
+            timeoutSeconds: 2
+            periodSeconds: 30
+            failureThreshold: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8013
+            initialDelaySeconds: 180
+            timeoutSeconds: 2
+            periodSeconds: 20
+            failureThreshold: 5
+      volumes:
+        - name: cms-storage
+          persistentVolumeClaim:
+            claimName: toqqer-test-pvc
