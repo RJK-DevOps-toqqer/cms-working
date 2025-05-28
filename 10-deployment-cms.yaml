@@ -1,0 +1,67 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms
+  namespace: toqqer-test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cms
+  template:
+    metadata:
+      labels:
+        app: cms
+    spec:
+      serviceAccountName: cms-sa
+      containers:
+        - name: cms
+          image: toqqer/cms:latest
+          command: ["java", "-jar", "/root/toqqer/storage/cms/CMS-Service-0.0.1-SNAPSHOT.jar"]
+          ports:
+            - containerPort: 8013
+          envFrom:
+            - configMapRef:
+                name: cms-config
+          env:
+            - name: DB_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: password
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: username
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: mysql-credentials
+                  key: password
+          volumeMounts:
+            - mountPath: /root/toqqer/storage/data
+              name: cms-storage
+          readinessProbe:
+            tcpSocket:
+              port: 8013
+            initialDelaySeconds: 180
+            timeoutSeconds: 2
+            periodSeconds: 30
+            failureThreshold: 5
+          livenessProbe:
+            tcpSocket:
+              port: 8013
+            initialDelaySeconds: 180
+            timeoutSeconds: 2
+            periodSeconds: 20
+            failureThreshold: 5
+      volumes:
+        - name: cms-storage
+          persistentVolumeClaim:
+            claimName: toqqer-test-pvc
