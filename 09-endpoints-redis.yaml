@@ -5,6 +5,6 @@ metadata:
   namespace: toqqer-test
 subsets:
   - addresses:
-      - ip: 192.168.0.211
+      - ip: 192.168.0.202
     ports:
       - port: 6379
