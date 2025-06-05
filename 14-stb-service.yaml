@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: stb
+  namespace: toqqer-test
+spec:
+  selector:
+    app: stb
+  ports:
+    - port: 80
+      targetPort: 8022
+      protocol: TCP
