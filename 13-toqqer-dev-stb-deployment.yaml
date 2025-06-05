@@ -1,0 +1,132 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: stb
+  namespace: toqqer-test
+spec:
+  replicas: 1
+  revisionHistoryLimit: 5
+  selector:
+    matchLabels:
+      app: stb
+  template:
+    metadata:
+      labels:
+        app: stb
+    spec:
+      serviceAccountName: cms-sa
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
+      volumes:
+      - name: persistent-storage
+        persistentVolumeClaim:
+          claimName: toqqer-test-pvc
+      hostNetwork: true
+      imagePullSecrets:
+      - name: gcr-key
+      containers:
+      - name: stb
+        image: toqqer/stbnew:v1
+        imagePullPolicy: IfNotPresent
+        command: [ "/bin/bash", "-c", "--" ]
+        args: [ "java -jar stb-0.0.1-SNAPSHOT.jar" ]
+        env:
+        - name: username
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: username
+        - name: password
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: password
+        - name: jwt-token
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: jwt-token     
+        - name: activemq-username
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: activemq-username     
+        - name: activemq-password
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: activemq-password    
+        - name: activemq-topic
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: activemq-topic     
+        - name: kaleyra-sid
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: kaleyra-sid     
+        - name: kaleyra-apikey
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: kaleyra-apikey     
+        - name: kaleyra-senderid
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: kaleyra-senderid     
+        - name: kaleyra-templateid
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: kaleyra-templateid    
+        - name: twilio-account-sid
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: twilio-account-sid    
+        - name: twilio-auth-token
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: twilio-auth-token   
+        - name: twilio-number
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: twilio-number    
+        - name: vonage-api-key
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: vonage-api-key    
+        - name: vonage-api-secret
+          valueFrom: 
+            secretKeyRef:
+              name: toqqer-secret
+              key: vonage-api-secret
+        ports:
+        - containerPort: 8022
+        volumeMounts:
+        - name: persistent-storage
+          mountPath: "/data"
+        resources:
+          requests:
+            cpu: 100m
+            memory: 400M
+          limits:
+            cpu: 1200m
+            memory: 4000M
+        readinessProbe:
+          tcpSocket:
+            port: 8022
+          initialDelaySeconds: 180
+          periodSeconds: 30
+        livenessProbe:
+          tcpSocket:
+            port: 8022
+          initialDelaySeconds: 180
+          periodSeconds: 20
