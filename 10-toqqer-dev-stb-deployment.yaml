@@ -28,7 +28,7 @@ spec:
       - name: gcr-key
       containers:
       - name: stb
-        image: toqqer/stbnew:v1
+        image: nkcharan/stbnew:v1
         imagePullPolicy: IfNotPresent
         command: [ "/bin/bash", "-c", "--" ]
         args: [ "java -jar stb-0.0.1-SNAPSHOT.jar" ]
